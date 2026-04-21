@@ -4,7 +4,7 @@ import pytest
 from sympy import Function, I, S, diff, simplify, symbols
 from sympy.physics.paulialgebra import Pauli
 from sympy.physics.quantum import Commutator, TensorProduct
-from utils_test import _extract_tp, _pauli_trace, tp_compose, tp_trace
+from counter_diabatic.utils_test import _extract_tp, _pauli_trace, tp_compose, tp_trace
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
