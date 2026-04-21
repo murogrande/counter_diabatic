@@ -104,30 +104,6 @@ def A_direct_mat(
     return A_upper - A_upper.T
 
 
-# def b_direct_vec(
-#     n_atoms: int,
-#     dOmega_t: torch.Tensor,
-#     dMu_t: torch.Tensor,
-#     dNu_t: torch.Tensor,
-# ):
-#     """Directly build the b vector from the sequence.
-#     b vector is the derivatives of local fields X1, Y1, Z1, X2, Y2, Z2, X3, Y3,
-#     Z3, ..
-#  """
-#     n_single = 3 * n_atoms
-#     n_sym = 3 * len(list(combinations(range(n_atoms), 2)))  # 3 * C(n,2)
-#     n_asym = 3 * len(list(permutations(range(n_atoms), 2)))  # 3 * n*(n-1)
-#     n_total = n_single + n_sym + n_asym
-
-#     b_vector = torch.zeros(n_total, dtype=torch.float64)
-#     for i in range(n_atoms):
-#         b_vector[0 + 3 * i] = -dOmega_t[i] / 2
-#         b_vector[1 + 3 * i] = -dMu_t[i] / 2
-#         b_vector[2 + 3 * i] = -dNu_t[i] / 2
-
-#     return b_vector
-
-
 def b_direct_vec(n_atoms, dOmega_t, dMu_t, dNu_t):
     n_sym = 3 * len(list(combinations(range(n_atoms), 2)))
     n_asym = 3 * len(list(permutations(range(n_atoms), 2)))

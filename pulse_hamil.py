@@ -5,10 +5,10 @@ def Hamiltonian_to_pulse(Omega_H, Mu_H, Nu_H, a_corr, b_corr, c_corr):
     """from Hamiltonian coefficents to pulse parameters, using the
     counter-diabatic corrections.
     """
-    X_total = Omega_H - a_corr
-    Y_total = Mu_H - b_corr
+    X_total = Omega_H + a_corr
+    Y_total = Mu_H + b_corr
 
-    delta_cd = -(Nu_H - c_corr)  #
+    delta_cd = -(Nu_H + c_corr)  #
     omega_cd = torch.sqrt(X_total**2 + Y_total**2)
 
     phi_cd = torch.atan2(Y_total, X_total)
