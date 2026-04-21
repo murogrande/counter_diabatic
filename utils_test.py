@@ -1,7 +1,7 @@
 
 
 from sympy.physics.quantum import TensorProduct
-from sympy.physics.paulialgebra import Pauli as PauliSym
+from sympy.physics.paulialgebra import Pauli as PauliSym, evaluate_pauli_product
 from sympy import Add, Mul as SMul
 
 def _extract_tp(expr):
@@ -52,8 +52,33 @@ def tp_compose(A, B):
     sA, tpA = _extract_tp(A)
     sB, tpB = _extract_tp(B)
 
+    # Track expanded forms as fallback values for the scalar case below.
+    A_exp, B_exp = A, B
+
+    # Case 1: scalar*(tp1+tp2) — no TP at top level of Mul because it's
+    # wrapped in an Add.  expand() distributes the scalar in.
+    # Case 2: sigma3*(1-sigma3) vs (1-sigma3)*sigma3 — both equal sigma3-sigma3²
+    # so the two TPs cancel and expand() returns S.Zero (a scalar, not an Add).
+    # In that case tpB stays None; we fall through to the scalar handler below.
+    if tpA is None:
+        A_exp = A.expand()
+        if isinstance(A_exp, Add):
+            return sum(tp_compose(t, B) for t in A_exp.args)
+        sA, tpA = _extract_tp(A_exp)
+
+    if tpB is None:
+        B_exp = B.expand()
+        if isinstance(B_exp, Add):
+            return sum(tp_compose(A, t) for t in B_exp.args)
+        sB, tpB = _extract_tp(B_exp)
+
     if tpA is None or tpB is None:
-        raise ValueError(f"tp_compose: cannot decompose — A={A!r}, B={B!r}")
+        # One side is a pure scalar after all expansion (e.g. 0 when a CD term
+        # collapses via Pauli algebra: [sigma3, nop] = 0).
+        # scalar * operator  or  operator * scalar  (scalars commute).
+        lhs = A_exp if tpA is None else sA * tpA
+        rhs = B_exp if tpB is None else sB * tpB
+        return lhs * rhs
 
     if len(tpA.args) != len(tpB.args):
         raise ValueError(
@@ -75,16 +100,30 @@ def _pauli_trace(p):
     Note: SymPy's Pauli(n) only exists for n in {1,2,3}; the identity
     is a plain scalar, handled by the fallback case.
     """
+    # Distribute Mul over Add (e.g. sigma1*(1-sigma3) -> sigma1 - sigma1*sigma3).
+    # expand() uses Mul._from_args internally so Pauli products stay as Mul objects;
+    # evaluate_pauli_product is then needed to reduce them to scalar*(Pauli or 1).
+    p = p.expand()
+
+    if isinstance(p, Add):
+        return sum(_pauli_trace(t) for t in p.args)
+
     if isinstance(p, PauliSym):
         return 0  # sigma_1/2/3 are all traceless
 
     if isinstance(p, SMul):
-        if any(isinstance(a, PauliSym) for a in p.args):
+        # Reduce all Pauli products: sigma_i*sigma_j -> scalar*sigma_k (or scalar).
+        # e.g. Mul(-1,s2,s1,s3) -> evaluate -> I (imaginary unit, a scalar)
+        p = evaluate_pauli_product(p)
+        if isinstance(p, Add):
+            return sum(_pauli_trace(t) for t in p.args)
+        if isinstance(p, PauliSym):
             return 0
-        return 2 * p  # pure scalar product: Tr(s*I_2) = 2*s
-
-    if isinstance(p, Add):
-        return sum(_pauli_trace(t) for t in p.args)
+        if isinstance(p, SMul):
+            if any(isinstance(a, PauliSym) for a in p.args):
+                return 0
+            return 2 * p  # pure scalar: Tr(s*I_2) = 2*s
+        return 2 * p  # scalar after full reduction
 
     return 2 * p  # pure scalar s: Tr(s*I_2) = 2*s
 
