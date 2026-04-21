@@ -6,10 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Counter-Diabatic (CD) gauge potential calculations for neutral-atom quantum systems. Computes optimal CD driving terms to suppress diabatic transitions during quantum evolution, bridging symbolic derivation with Pasqal hardware emulation.
 
-## Dependencies
+## Install
 
 ```bash
-pip install sympy numpy torch pulser emu-base emu-mps jupyter
+pip install -e ".[dev]"
+pre-commit install
 ```
 
 ## Running
@@ -17,6 +18,27 @@ pip install sympy numpy torch pulser emu-base emu-mps jupyter
 ```bash
 jupyter notebook conmu.ipynb   # main CD coefficient derivation
 jupyter notebook essay.ipynb   # Pulser integration example
+```
+
+## Tests
+
+```bash
+pytest test/ -v
+```
+
+## Layout
+
+```
+src/counter_diabatic/   # package source
+    pulse_hamil.py          # Hamiltonian ↔ pulse parameter conversions
+    sequence_2_matrix.py    # CD linear system (A matrix, b vector, solvers)
+test/
+    test_sequence_2_matrix.py
+    utils_test.py           # SymPy Pauli/TensorProduct helpers
+conftest.py             # adds src/ to sys.path for pytest
+pyproject.toml
+.pre-commit-config.yaml     # ruff lint + format (no tests)
+.github/workflows/ci.yml    # lint + test jobs
 ```
 
 ## Architecture

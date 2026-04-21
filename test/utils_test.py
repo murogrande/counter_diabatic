@@ -1,8 +1,9 @@
-
-
+from sympy import Add
+from sympy import Mul as SMul
+from sympy.physics.paulialgebra import Pauli as PauliSym
+from sympy.physics.paulialgebra import evaluate_pauli_product
 from sympy.physics.quantum import TensorProduct
-from sympy.physics.paulialgebra import Pauli as PauliSym, evaluate_pauli_product
-from sympy import Add, Mul as SMul
+
 
 def _extract_tp(expr):
     """Split a single term into its scalar prefactor and TensorProduct factor.
@@ -128,7 +129,7 @@ def _pauli_trace(p):
     return 2 * p  # pure scalar s: Tr(s*I_2) = 2*s
 
 
-def tp_trace(expr,n_qubits):
+def tp_trace(expr, n_qubits):
     """Compute Tr of a two-qubit operator written as sums of scalar * TensorProduct.
 
     Uses Tr(A⊗B) = Tr(A)*Tr(B) and linearity.  Each TensorProduct factor is
@@ -138,13 +139,13 @@ def tp_trace(expr,n_qubits):
     this means an operator product was not expanded with tp_compose first.
     """
     if isinstance(expr, Add):
-        return sum(tp_trace(t,n_qubits) for t in expr.args)
+        return sum(tp_trace(t, n_qubits) for t in expr.args)
 
     scalar, tp = _extract_tp(expr)
 
     if tp is None:
         if scalar is None:
-            return 2**n_qubits * expr # Tr(s * I_{2^n}) = 2^n * s
+            return 2**n_qubits * expr  # Tr(s * I_{2^n}) = 2^n * s
         raise ValueError(
             f"tp_trace: unrecognised term (not scalar*TensorProduct): {expr!r}"
         )
