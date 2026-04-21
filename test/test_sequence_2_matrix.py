@@ -1,5 +1,5 @@
 import pytest
-from sequence_2_matrix import A_direct_mat, b_direct_vec
+from counter_diabatic.sequence_2_matrix import A_direct_mat, b_direct_vec
 from utils_test import tp_trace, tp_compose, _extract_tp, _pauli_trace
 
 from sympy.physics.paulialgebra import Pauli
