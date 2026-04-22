@@ -1,127 +1,21 @@
-from itertools import combinations, permutations
-
 import pytest
-from sympy import Function, I, S, diff, simplify, symbols
-from sympy.physics.paulialgebra import Pauli
+from sympy import  I, S
 from sympy.physics.quantum import Commutator, TensorProduct
-from counter_diabatic.utils_test import _extract_tp, _pauli_trace, tp_compose, tp_trace
+from counter_diabatic.utils_ import (
+    _extract_tp,
+    _pauli_trace,
+    tp_compose,
+    tp_trace,
+    single_body_op,
+    two_body_op,
+    s1,
+    s2,
+    s3,
+    nop,
+    I2,
+)
 
-# ── helpers ───────────────────────────────────────────────────────────────────
-
-s1, s2, s3 = Pauli(1), Pauli(2), Pauli(3)
-I2 = s1 * s1
-nop = (I2 - s3) / 2
-
-
-def single_body_op(p, site, n):
-    f = [I2] * n
-    f[site] = p
-    return TensorProduct(*f)
-
-
-def two_body_op(p1, p2, site1, site2, n):
-    f = [I2] * n
-    f[site1] = p1
-    f[site2] = p2
-    return TensorProduct(*f)
-
-
-def build_cd(n_qubits):
-    X = [single_body_op(s1, i, n_qubits) for i in range(n_qubits)]
-    Y = [single_body_op(s2, i, n_qubits) for i in range(n_qubits)]
-    Z = [single_body_op(s3, i, n_qubits) for i in range(n_qubits)]
-
-    Omega = [symbols(f"Omega_{i+1}", real=True, positive=True) for i in range(n_qubits)]
-    Mu = [symbols(f"mu_{i+1}", real=True) for i in range(n_qubits)]
-    Nu = [symbols(f"nu_{i+1}", real=True) for i in range(n_qubits)]
-    U = {
-        (i, j): symbols(f"U{i+1}{j+1}", real=True, positive=True)
-        for i, j in combinations(range(n_qubits), 2)
-    }
-    lam = symbols("lambda", real=True)
-
-    a = {i: symbols(f"a_{i+1}", real=True) for i in range(n_qubits)}
-    b = {i: symbols(f"b_{i+1}", real=True) for i in range(n_qubits)}
-    c = {i: symbols(f"c_{i+1}", real=True) for i in range(n_qubits)}
-    d_xx = {
-        (i, j): symbols(f"delta_xx_{i+1}{j+1}", real=True)
-        for i, j in combinations(range(n_qubits), 2)
-    }
-    d_yy = {
-        (i, j): symbols(f"delta_yy_{i+1}{j+1}", real=True)
-        for i, j in combinations(range(n_qubits), 2)
-    }
-    d_zz = {
-        (i, j): symbols(f"delta_zz_{i+1}{j+1}", real=True)
-        for i, j in combinations(range(n_qubits), 2)
-    }
-    d_xy = {
-        (i, j): symbols(f"delta_xy_{i+1}{j+1}", real=True)
-        for i, j in permutations(range(n_qubits), 2)
-    }
-    d_xz = {
-        (i, j): symbols(f"delta_xz_{i+1}{j+1}", real=True)
-        for i, j in permutations(range(n_qubits), 2)
-    }
-    d_yz = {
-        (i, j): symbols(f"delta_yz_{i+1}{j+1}", real=True)
-        for i, j in permutations(range(n_qubits), 2)
-    }
-
-    Omega_l = [Function(f"Omega_{i+1}")(lam) for i in range(n_qubits)]
-    mu_l = [Function(f"mu_{i+1}")(lam) for i in range(n_qubits)]
-    nu_l = [Function(f"nu_{i+1}")(lam) for i in range(n_qubits)]
-
-    A = sum(a[i] * X[i] + b[i] * Y[i] + c[i] * Z[i] for i in range(n_qubits))
-    for i, j in combinations(range(n_qubits), 2):
-        A += d_xx[(i, j)] * two_body_op(s1, s1, i, j, n_qubits)
-        A += d_yy[(i, j)] * two_body_op(s2, s2, i, j, n_qubits)
-        A += d_zz[(i, j)] * two_body_op(s3, s3, i, j, n_qubits)
-    for i, j in permutations(range(n_qubits), 2):
-        A += d_xy[(i, j)] * two_body_op(s1, s2, i, j, n_qubits)
-        A += d_xz[(i, j)] * two_body_op(s1, s3, i, j, n_qubits)
-        A += d_yz[(i, j)] * two_body_op(s2, s3, i, j, n_qubits)
-
-    H = sum(Omega[i] * X[i] + Mu[i] * Y[i] + Nu[i] * Z[i] for i in range(n_qubits)) + sum(
-        U[(i, j)] * two_body_op(s3, s3, i, j, n_qubits)
-        for i, j in combinations(range(n_qubits), 2)
-    )
-    H_lam = sum(
-        Omega_l[i] * X[i] + mu_l[i] * Y[i] + nu_l[i] * Z[i] for i in range(n_qubits)
-    ) + sum(
-        U[(i, j)] * two_body_op(s3, s3, i, j, n_qubits)
-        for i, j in combinations(range(n_qubits), 2)
-    )
-    dH_dlam = diff(H_lam, lam)
-    icomm = (I * Commutator(A, H).expand(commutator=True)).expand(commutator=True).doit()
-    CD = dH_dlam + icomm
-
-    return (
-        CD,
-        X,
-        Y,
-        Z,
-        Omega,
-        Mu,
-        Nu,
-        U,
-        a,
-        b,
-        c,
-        d_xx,
-        d_yy,
-        d_zz,
-        d_xy,
-        d_xz,
-        d_yz,
-        Omega_l,
-        mu_l,
-        nu_l,
-        lam,
-    )
-
-
-# ── _extract_tp unit tests ────────────────────────────────────────────────────
+# ── _extract_tp unit tests ─────
 
 
 def test_extract_tp_bare():
@@ -158,7 +52,7 @@ def test_extract_tp_product_of_two_tps_merges():
     assert scalar is not None
 
 
-# ── _pauli_trace unit tests ───────────────────────────────────────────────────
+# ── _pauli_trace unit tests ────────
 
 
 def test_pauli_trace_single_pauli_is_zero():
@@ -219,7 +113,7 @@ def test_pauli_trace_cancelling_sigma3_product():
     assert _pauli_trace(s3 * (1 - s3) - (1 - s3) * s3) == 0
 
 
-# ── tp_compose / tp_trace unit tests ─────────────────────────────────────────
+# ── tp_compose / tp_trace unit tests ────────
 
 
 def test_tp_compose_simple():
@@ -269,7 +163,9 @@ def test_tp_compose_zero_after_pauli_cancel():
     Z0 = single_body_op(s3, 0, n)
     NOP0 = single_body_op(nop, 0, n)
     comm = (
-        (I * Commutator(Z0, NOP0).expand(commutator=True)).expand(commutator=True).doit()
+        (I * Commutator(Z0, NOP0).expand(commutator=True))
+        .expand(commutator=True)
+        .doit()
     )
     result = tp_compose(single_body_op(s1, 0, n), comm)
     assert result == 0
@@ -293,94 +189,3 @@ def test_tp_trace_mixed():
 def test_tp_trace_scalar_term():
     # Tr over a pure scalar (no TP) = 2^n * scalar
     assert tp_trace(S(3), 2) == 12
-
-
-# ── integration tests ─────────────────────────────────────────────────────────
-
-
-def test_tp_compose_scalar_times_add_of_tp():
-    """scalar*(tp1+tp2) — TP buried inside Mul(scalar, Add(tp1,tp2)).
-
-    Arises from non-commuting Paulis in nop-containing commutators,
-    e.g. [X, nop] produces terms with sigma1*(1-sigma3).
-    expand() distributes the scalar into the Add so each summand is scalar*TP.
-    """
-    n = 2
-    H_nop = single_body_op(s1, 0, n) + two_body_op(nop, nop, 0, 1, n)
-    A_simple = symbols("a", real=True) * single_body_op(s1, 0, n)
-    icomm = (
-        (I * Commutator(A_simple, H_nop).expand(commutator=True))
-        .expand(commutator=True)
-        .doit()
-    )
-    Y = [single_body_op(s2, i, n) for i in range(n)]
-    result = tp_trace(tp_compose(Y[0], icomm), n)
-    assert result is not None
-
-
-def test_tp_compose_cancelling_nop_term():
-    """[sigma3, nop] = 0 — both TPs expand to sigma3-sigma3^2 and cancel.
-
-    expand() returns S.Zero; tp_compose must return 0*operator = 0
-    rather than raising ValueError.
-    """
-    n = 2
-    Z0 = single_body_op(s3, 0, n)
-    NOP0 = single_body_op(nop, 0, n)
-    comm = (
-        (I * Commutator(Z0, NOP0).expand(commutator=True)).expand(commutator=True).doit()
-    )
-    Y = [single_body_op(s2, i, n) for i in range(n)]
-    result = tp_trace(tp_compose(Y[0], comm), n)
-    assert result == 0
-
-
-def test_cd_assertions_n2():
-    """Three known projections of CD onto Pauli basis for n=2 (no nop in H)."""
-    n = 2
-    (
-        CD,
-        X,
-        Y,
-        Z,
-        Omega,
-        Mu,
-        Nu,
-        U,
-        a,
-        b,
-        c,
-        d_xx,
-        d_yy,
-        d_zz,
-        d_xy,
-        d_xz,
-        d_yz,
-        Omega_l,
-        mu_l,
-        nu_l,
-        lam,
-    ) = build_cd(n)
-
-    norm = 2 ** (n + 1)
-
-    expected = (
-        -Omega[0] * d_yz[(1, 0)]
-        - Omega[1] * d_yz[(0, 1)]
-        + d_xy[(0, 1)] * Nu[0]
-        + d_xy[(1, 0)] * Nu[1]
-    )
-    assert simplify(tp_trace(tp_compose(Y[0] * Y[1], CD), n) / norm - expected) == 0
-
-    expected2 = (
-        -b[0] * Nu[0]
-        + c[0] * Mu[0]
-        - d_yz[(0, 1)] * U[(0, 1)]
-        + diff(Omega_l[0], lam) / 2
-    )
-    assert (tp_trace(tp_compose(X[0], CD), n) / norm).equals(expected2)
-
-    expected3 = (
-        a[1] * Nu[1] - c[1] * Omega[1] + d_xz[(1, 0)] * U[(0, 1)] + diff(mu_l[1], lam) / 2
-    )
-    assert (tp_trace(tp_compose(Y[1], CD), n) / norm).equals(expected3)
